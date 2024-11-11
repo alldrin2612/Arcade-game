@@ -93,13 +93,18 @@ class SpaceShooter:
         return self.cursor.fetchall()
 
     def load_assets(self):
-        # Create simple shapes for entities if no images available
-        self.player_ship = pygame.Surface((40, 40), pygame.SRCALPHA)
-        pygame.draw.polygon(self.player_ship, self.WHITE, [(20, 0), (0, 40), (40, 40)])
+        # Load spaceship images
+        self.player_ship_image = pygame.image.load("BG/spaceship 1.png").convert_alpha()  # Load player ship image
+        self.enemy_ship_image = pygame.image.load("BG/enemyship.png").convert_alpha()  # Load enemy ship image
         
-        self.enemy_ship = pygame.Surface((30, 30), pygame.SRCALPHA)
-        pygame.draw.polygon(self.enemy_ship, self.RED, [(15, 0), (30, 30), (0, 30)])
+        # Resize images to fit the screen
+        self.player_ship = pygame.transform.scale(self.player_ship_image, (50, 50))  # Resize player ship
+        self.enemy_ship = pygame.transform.scale(self.enemy_ship_image, (40, 40))  # Resize enemy ship
         
+        # Rotate the enemy ship 180 degrees
+        self.enemy_ship = pygame.transform.rotate(self.enemy_ship, 180)  # Rotate enemy ship
+        
+        # Load bullet images
         self.bullet = pygame.Surface((4, 12), pygame.SRCALPHA)
         pygame.draw.rect(self.bullet, self.GREEN, (0, 0, 4, 12))
         
@@ -409,7 +414,7 @@ class SpaceShooter:
         self.player_pos[0] += shake_x
         self.player_pos[1] += shake_y
 
-        # Draw player
+        # Draw player ship
         self.screen.blit(self.player_ship, self.player_pos)
         
         # Draw enemies
