@@ -19,6 +19,7 @@ class SpaceShooter:
         self.WHITE = (255, 255, 255)
         self.RED = (255, 0, 0)
         self.GREEN = (0, 255, 0)
+        self.BLUE = (0, 0, 255)
         
         # Game states
         self.running = True
@@ -30,6 +31,15 @@ class SpaceShooter:
         # Clock and timing
         self.clock = pygame.time.Clock()
         self.FPS = 60
+        
+        # Wave patterns
+        self.wave_patterns = [
+            self.create_grid_formation,
+            self.create_v_formation,
+            self.create_circle_formation,
+            self.create_diamond_formation,
+            self.create_zigzag_formation
+        ]
         
         # Load assets
         self.load_assets()
@@ -69,21 +79,143 @@ class SpaceShooter:
         self.last_shot_time = 0
         self.shot_delay = 250  # Milliseconds between shots
 
+    def create_enemy(self, x, y, pattern_type):
+        movement_patterns = {
+            'linear': {'velocity': [2, 0], 'pattern_func': self.move_linear},
+            'sine': {'velocity': [2, 0], 'pattern_func': self.move_sine},
+            'circular': {'velocity': [2, 0], 'pattern_func': self.move_circular},
+            'zigzag': {'velocity': [2, 0], 'pattern_func': self.move_zigzag}
+        }
+        
+        pattern = random.choice(list(movement_patterns.keys()))
+        
+        return {
+            'pos': [x, y],
+            'velocity': movement_patterns[pattern]['velocity'].copy(),
+            'health': 1,
+            'pattern': pattern,
+            'pattern_func': movement_patterns[pattern]['pattern_func'],
+            'initial_pos': [x, y],
+            'time': random.random() * math.pi * 2  # Random start phase
+        }
+
+    def create_grid_formation(self):
+        enemies = []
+        rows = 3
+        cols = 6
+        spacing_x = 80
+        spacing_y = 60
+        
+        for row in range(rows):
+            for col in range(cols):
+                x = col * spacing_x + 100
+                y = row * spacing_y + 50
+                enemies.append(self.create_enemy(x, y, 'grid'))
+        return enemies
+
+    def create_v_formation(self):
+        enemies = []
+        num_enemies = 9
+        spacing = 40
+        
+        for i in range(num_enemies):
+            if i < num_enemies // 2:
+                x = self.screen_width // 2 - (i + 1) * spacing
+                y = 50 + i * spacing
+            else:
+                x = self.screen_width // 2 + (i - num_enemies // 2) * spacing
+                y = 50 + (num_enemies - i - 1) * spacing
+            enemies.append(self.create_enemy(x, y, 'v'))
+        return enemies
+
+    def create_circle_formation(self):
+        enemies = []
+        num_enemies = 12
+        radius = 100
+        center_x = self.screen_width // 2
+        center_y = 150
+        
+        for i in range(num_enemies):
+            angle = (2 * math.pi * i) / num_enemies
+            x = center_x + radius * math.cos(angle)
+            y = center_y + radius * math.sin(angle)
+            enemies.append(self.create_enemy(x, y, 'circle'))
+        return enemies
+
+    def create_diamond_formation(self):
+        enemies = []
+        size = 5
+        spacing = 40
+        
+        for i in range(size * 2 - 1):
+            width = size - abs(size - 1 - i)
+            for j in range(width):
+                x = self.screen_width // 2 + (j - width // 2) * spacing
+                y = 50 + i * spacing // 2
+                enemies.append(self.create_enemy(x, y, 'diamond'))
+        return enemies
+
+    def create_zigzag_formation(self):
+        enemies = []
+        num_rows = 3
+        enemies_per_row = 8
+        spacing_x = 80
+        spacing_y = 60
+        
+        for row in range(num_rows):
+            offset = spacing_x // 2 if row % 2 else 0
+            for col in range(enemies_per_row):
+                x = col * spacing_x + offset + 50
+                y = row * spacing_y + 50
+                enemies.append(self.create_enemy(x, y, 'zigzag'))
+        return enemies
+
+    def move_linear(self, enemy):
+        enemy['pos'][0] += enemy['velocity'][0]
+        if enemy['pos'][0] <= 0 or enemy['pos'][0] >= self.screen_width - 30:
+            enemy['velocity'][0] *= -1
+            enemy['pos'][1] += 20
+
+    def move_sine(self, enemy):
+        enemy['time'] += 0.05
+        enemy['pos'][0] += enemy['velocity'][0]
+        enemy['pos'][1] = enemy['initial_pos'][1] + math.sin(enemy['time']) * 30
+        
+        if enemy['pos'][0] <= 0 or enemy['pos'][0] >= self.screen_width - 30:
+            enemy['velocity'][0] *= -1
+            enemy['pos'][1] += 10
+
+    def move_circular(self, enemy):
+        enemy['time'] += 0.03
+        radius = 30
+        enemy['pos'][0] = enemy['initial_pos'][0] + math.cos(enemy['time']) * radius
+        enemy['pos'][1] = enemy['initial_pos'][1] + math.sin(enemy['time']) * radius
+
+    def move_zigzag(self, enemy):
+        enemy['time'] += 0.1
+        enemy['pos'][0] += enemy['velocity'][0]
+        if enemy['pos'][0] <= 0 or enemy['pos'][0] >= self.screen_width - 30:
+            enemy['velocity'][0] *= -1
+            enemy['pos'][1] += 30
+
     def spawn_wave(self):
         self.enemies.clear()
-        enemy_rows = 3
-        enemies_per_row = 6
         
-        for row in range(enemy_rows):
-            for col in range(enemies_per_row):
-                x = col * (self.screen_width // enemies_per_row) + 50
-                y = row * 60 + 50
-                enemy = {
-                    'pos': [x, y],
-                    'velocity': [2, 0],
-                    'health': 1
-                }
-                self.enemies.append(enemy)
+        # Choose a random formation based on wave number
+        if self.wave <= len(self.wave_patterns):
+            # Use sequential patterns for first few waves
+            pattern_func = self.wave_patterns[self.wave - 1]
+        else:
+            # Use random patterns for later waves
+            pattern_func = random.choice(self.wave_patterns)
+        
+        # Create enemies using the selected pattern
+        self.enemies = pattern_func()
+        
+        # Increase difficulty with each wave
+        speed_multiplier = 1 + (self.wave - 1) * 0.1
+        for enemy in self.enemies:
+            enemy['velocity'][0] *= speed_multiplier
 
     def handle_input(self):
         keys = pygame.key.get_pressed()
@@ -113,14 +245,8 @@ class SpaceShooter:
 
     def update_enemies(self):
         for enemy in self.enemies:
-            # Update enemy position
-            enemy['pos'][0] += enemy['velocity'][0]
+            enemy['pattern_func'](enemy)
             
-            # Check for wall collision
-            if enemy['pos'][0] <= 0 or enemy['pos'][0] >= self.screen_width - 30:
-                enemy['velocity'][0] *= -1
-                enemy['pos'][1] += 20  # Move down when hitting wall
-                
             # Check if enemies reached player
             if enemy['pos'][1] + 30 >= self.player_pos[1]:
                 self.game_over = True
