@@ -59,6 +59,10 @@ class SpaceShooter:
         # Initialize database
         self.init_database()
 
+        self.player_damage_particles = []  # List to hold player damage particles
+        self.enemy_damage_particles = []  # List to hold enemy damage particles
+        self.shake_intensity = 0  # Intensity of the shake effect
+
     def init_database(self):
         # Create a new SQLite database or connect to an existing one
         self.conn = sqlite3.connect('highscores.db')
@@ -353,6 +357,9 @@ class SpaceShooter:
                     self.enemies.remove(enemy)
                     self.score += 100
                     
+                    # Create enemy damage particles
+                    self.create_damage_particles(enemy['pos'][0] + 15, enemy['pos'][1] + 15, self.RED)
+                    
                     if not self.enemies:
                         self.wave += 1
                         self.spawn_wave()
@@ -367,13 +374,26 @@ class SpaceShooter:
                 
                 self.enemy_bullets.remove(bullet)
                 self.lives -= 1
+                self.shake_intensity = 5  # Set shake intensity when player is hit
+                self.create_damage_particles(self.player_pos[0] + 20, self.player_pos[1] + 20, self.WHITE)
                 if self.lives <= 0:
                     self.save_high_score(self.score)  # Save high score when game over
                     self.game_over = True
 
+    def create_damage_particles(self, x, y, color, count=10):
+        for _ in range(count):
+            particle_velocity = [random.uniform(-2, 2), random.uniform(-2, 2)]
+            self.player_damage_particles.append({'pos': [x, y], 'velocity': particle_velocity, 'lifetime': 30, 'color': color})
+
     def draw(self):
         self.screen.fill(self.BLACK)
         
+        # Apply shake effect to player position
+        shake_x = random.uniform(-self.shake_intensity, self.shake_intensity)
+        shake_y = random.uniform(-self.shake_intensity, self.shake_intensity)
+        self.player_pos[0] += shake_x
+        self.player_pos[1] += shake_y
+
         # Draw player
         self.screen.blit(self.player_ship, self.player_pos)
         
@@ -388,7 +408,27 @@ class SpaceShooter:
         # Draw enemy bullets
         for bullet in self.enemy_bullets:
             self.screen.blit(self.enemy_bullet, bullet)
-        
+
+        # Draw player damage particles
+        for particle in self.player_damage_particles[:]:
+            particle['pos'][0] += particle['velocity'][0]
+            particle['pos'][1] += particle['velocity'][1]
+            particle['lifetime'] -= 1
+            if particle['lifetime'] <= 0:
+                self.player_damage_particles.remove(particle)
+            else:
+                pygame.draw.circle(self.screen, particle['color'], (int(particle['pos'][0]), int(particle['pos'][1])), 3)
+
+        # Draw enemy damage particles
+        for particle in self.enemy_damage_particles[:]:
+            particle['pos'][0] += particle['velocity'][0]
+            particle['pos'][1] += particle['velocity'][1]
+            particle['lifetime'] -= 1
+            if particle['lifetime'] <= 0:
+                self.enemy_damage_particles.remove(particle)
+            else:
+                pygame.draw.circle(self.screen, particle['color'], (int(particle['pos'][0]), int(particle['pos'][1])), 3)
+
         # Draw HUD
         score_text = self.font.render(f'Score: {self.score}', True, self.WHITE)
         wave_text = self.font.render(f'Wave: {self.wave}', True, self.WHITE)
@@ -452,6 +492,10 @@ class SpaceShooter:
                 self.update_bullets()
                 self.check_collisions()
             
+            # Reset shake intensity after applying it
+            if self.shake_intensity > 0:
+                self.shake_intensity -= 0.5  # Gradually reduce shake intensity
+
             self.draw()
         
         self.conn.close()  # Close the database connection
