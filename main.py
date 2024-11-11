@@ -86,6 +86,11 @@ class SpaceShooter:
         # Adjust shake effect
         self.shake_intensity = 10  # Increase shake intensity for new resolution
 
+        # Add new attribute for player rotation
+        self.player_rotation = 0
+        self.max_tilt = 20  # Maximum rotation angle in degrees
+        self.tilt_speed = 2  # How quickly the ship tilts
+
     def init_database(self):
         # Create a new SQLite database or connect to an existing one
         self.conn = sqlite3.connect('highscores.db')
@@ -326,11 +331,22 @@ class SpaceShooter:
     def handle_input(self):
         keys = pygame.key.get_pressed()
         
+        # Update velocity based on input
         if keys[pygame.K_LEFT]:
             self.player_velocity[0] -= self.player_acceleration
-        if keys[pygame.K_RIGHT]:
+            # Smoothly rotate left
+            self.player_rotation = min(self.player_rotation + self.tilt_speed, self.max_tilt)
+        elif keys[pygame.K_RIGHT]:
             self.player_velocity[0] += self.player_acceleration
-            
+            # Smoothly rotate right
+            self.player_rotation = max(self.player_rotation - self.tilt_speed, -self.max_tilt)
+        else:
+            # Return to center when no input
+            if self.player_rotation > 0:
+                self.player_rotation = max(0, self.player_rotation - self.tilt_speed)
+            elif self.player_rotation < 0:
+                self.player_rotation = min(0, self.player_rotation + self.tilt_speed)
+        
         self.player_velocity[0] *= self.player_friction
         self.player_pos[0] += self.player_velocity[0]
         
@@ -432,8 +448,11 @@ class SpaceShooter:
         self.player_pos[0] += shake_x
         self.player_pos[1] += shake_y
 
-        # Draw player ship
-        self.screen.blit(self.player_ship, self.player_pos)
+        # Draw player ship with rotation
+        rotated_player = pygame.transform.rotate(self.player_ship, self.player_rotation)
+        # Get the new rect to maintain center position
+        player_rect = rotated_player.get_rect(center=(self.player_pos[0] + 25, self.player_pos[1] + 25))
+        self.screen.blit(rotated_player, player_rect)
         
         # Draw enemies
         for enemy in self.enemies:
