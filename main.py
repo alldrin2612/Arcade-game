@@ -3,6 +3,7 @@ import random
 import math
 import os
 import sqlite3  # Import SQLite library
+import cv2  # Import OpenCV for video playback
 
 class SpaceShooter:
     def __init__(self):
@@ -63,6 +64,10 @@ class SpaceShooter:
         self.enemy_damage_particles = []  # List to hold enemy damage particles
         self.shake_intensity = 0  # Intensity of the shake effect
 
+        # Initialize video
+        self.video_capture = cv2.VideoCapture("BG/Background.mp4")
+        self.frame = None
+
     def init_database(self):
         # Create a new SQLite database or connect to an existing one
         self.conn = sqlite3.connect('highscores.db')
@@ -88,9 +93,6 @@ class SpaceShooter:
         return self.cursor.fetchall()
 
     def load_assets(self):
-        # Load background image
-        self.background_image = pygame.image.load("BG/space.png").convert()  # Load and convert the image for better performance
-
         # Create simple shapes for entities if no images available
         self.player_ship = pygame.Surface((40, 40), pygame.SRCALPHA)
         pygame.draw.polygon(self.player_ship, self.WHITE, [(20, 0), (0, 40), (40, 40)])
@@ -389,9 +391,18 @@ class SpaceShooter:
             self.player_damage_particles.append({'pos': [x, y], 'velocity': particle_velocity, 'lifetime': 30, 'color': color})
 
     def draw(self):
-        # Draw the background image
-        self.screen.blit(self.background_image, (0, 0))  # Draw the background at the top-left corner
-        
+        # Read a frame from the video
+        ret, self.frame = self.video_capture.read()
+        if ret:
+            # Convert the frame to a format suitable for Pygame
+            frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
+            frame = pygame.surfarray.make_surface(frame)
+            frame = pygame.transform.scale(frame, (self.screen_width, self.screen_height))
+            self.screen.blit(frame, (0, 0))  # Draw the video frame as background
+        else:
+            # If the video ends, restart it
+            self.video_capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+
         # Apply shake effect to player position
         shake_x = random.uniform(-self.shake_intensity, self.shake_intensity)
         shake_y = random.uniform(-self.shake_intensity, self.shake_intensity)
@@ -504,6 +515,7 @@ class SpaceShooter:
         
         self.conn.close()  # Close the database connection
         pygame.quit()
+        self.video_capture.release()  # Release the video capture object
 
     def show_high_scores(self):
         # Display high scores in a separate screen
