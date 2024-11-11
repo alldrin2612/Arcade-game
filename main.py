@@ -358,8 +358,16 @@ class SpaceShooter:
             self.last_shot_time = current_time
 
     def shoot(self):
-        bullet_pos = [self.player_pos[0] + 18, self.player_pos[1] - 10]
-        self.bullets.append(bullet_pos)
+        # Calculate bullet starting position from center of ship's tip
+        ship_width = 50  # Width of the player ship
+        ship_height = 50  # Height of the player ship
+        
+        # Center the bullet horizontally relative to ship width
+        bullet_x = self.player_pos[0] + (ship_width / 2) - 2  # -2 to center the 4px wide bullet
+        # Position at the tip of the ship
+        bullet_y = self.player_pos[1] - 10
+        
+        self.bullets.append([bullet_x, bullet_y])
 
     def enemy_shoot(self, enemy):
         current_time = pygame.time.get_ticks()
