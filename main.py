@@ -19,7 +19,7 @@ class SpaceShooter:
         self.WHITE = (255, 255, 255)
         self.RED = (255, 0, 0)
         self.GREEN = (0, 255, 0)
-        self.BLUE = (0, 0, 255)
+        self.YELLOW = (255, 255, 0)  # Added for enemy bullets
         
         # Game states
         self.running = True
@@ -27,6 +27,14 @@ class SpaceShooter:
         self.score = 0
         self.lives = 3
         self.wave = 1
+        
+        # Enemy scaling
+        self.MIN_ENEMIES = 5
+        self.MAX_ENEMIES = 15
+        self.ENEMY_INCREASE_RATE = 2  # How many enemies to add per wave
+        
+        # New attribute for shooters per wave
+        self.shooters_per_wave = {1: 2, 2: 3, 3: 4, 4: 5}  # Example configuration
         
         # Clock and timing
         self.clock = pygame.time.Clock()
@@ -58,6 +66,10 @@ class SpaceShooter:
         self.bullet = pygame.Surface((4, 12), pygame.SRCALPHA)
         pygame.draw.rect(self.bullet, self.GREEN, (0, 0, 4, 12))
         
+        # New enemy bullet asset
+        self.enemy_bullet = pygame.Surface((4, 12), pygame.SRCALPHA)
+        pygame.draw.rect(self.enemy_bullet, self.YELLOW, (0, 0, 4, 12))
+        
         # Font
         self.font = pygame.font.Font(None, 36)
 
@@ -71,6 +83,9 @@ class SpaceShooter:
         
         # Enemy attributes
         self.enemies = []
+        self.enemy_bullets = []  # Initialize enemy bullets
+        self.enemy_bullet_speed = 5
+        self.enemy_shot_delay = 2000  # 2 seconds between shots
         self.spawn_wave()
         
         # Bullet attributes
@@ -78,6 +93,11 @@ class SpaceShooter:
         self.bullet_speed = 10
         self.last_shot_time = 0
         self.shot_delay = 250  # Milliseconds between shots
+
+    def get_enemy_count_for_wave(self):
+        # Calculate number of enemies for current wave
+        enemy_count = self.MIN_ENEMIES + (self.wave - 1) * self.ENEMY_INCREASE_RATE
+        return min(enemy_count, self.MAX_ENEMIES)
 
     def create_enemy(self, x, y, pattern_type):
         movement_patterns = {
@@ -96,42 +116,47 @@ class SpaceShooter:
             'pattern': pattern,
             'pattern_func': movement_patterns[pattern]['pattern_func'],
             'initial_pos': [x, y],
-            'time': random.random() * math.pi * 2  # Random start phase
+            'time': random.random() * math.pi * 2,  # Random start phase
+            'can_shoot': False,  # New attribute for shooting ability
+            'last_shot_time': 0  # New attribute for tracking shot timing
         }
 
-    def create_grid_formation(self):
+    def create_grid_formation(self, num_enemies):
         enemies = []
-        rows = 3
-        cols = 6
+        rows = min(3, (num_enemies + 5) // 6)
+        cols = min(6, (num_enemies + rows - 1) // rows)
         spacing_x = 80
         spacing_y = 60
         
+        count = 0
         for row in range(rows):
             for col in range(cols):
-                x = col * spacing_x + 100
+                if count >= num_enemies:
+                    break
+                x = col * spacing_x + (self.screen_width - (cols-1) * spacing_x) // 2
                 y = row * spacing_y + 50
                 enemies.append(self.create_enemy(x, y, 'grid'))
+                count += 1
         return enemies
 
-    def create_v_formation(self):
+    def create_v_formation(self, num_enemies):
         enemies = []
-        num_enemies = 9
         spacing = 40
         
+        half_enemies = num_enemies // 2
         for i in range(num_enemies):
-            if i < num_enemies // 2:
+            if i < half_enemies:
                 x = self.screen_width // 2 - (i + 1) * spacing
                 y = 50 + i * spacing
             else:
-                x = self.screen_width // 2 + (i - num_enemies // 2) * spacing
+                x = self.screen_width // 2 + (i - half_enemies) * spacing
                 y = 50 + (num_enemies - i - 1) * spacing
             enemies.append(self.create_enemy(x, y, 'v'))
         return enemies
 
-    def create_circle_formation(self):
+    def create_circle_formation(self, num_enemies):
         enemies = []
-        num_enemies = 12
-        radius = 100
+        radius = min(100, num_enemies * 10)
         center_x = self.screen_width // 2
         center_y = 150
         
@@ -142,32 +167,40 @@ class SpaceShooter:
             enemies.append(self.create_enemy(x, y, 'circle'))
         return enemies
 
-    def create_diamond_formation(self):
+    def create_diamond_formation(self, num_enemies):
         enemies = []
-        size = 5
+        size = min(4, (num_enemies + 3) // 4)
         spacing = 40
         
+        count = 0
         for i in range(size * 2 - 1):
             width = size - abs(size - 1 - i)
             for j in range(width):
+                if count >= num_enemies:
+                    break
                 x = self.screen_width // 2 + (j - width // 2) * spacing
                 y = 50 + i * spacing // 2
                 enemies.append(self.create_enemy(x, y, 'diamond'))
+                count += 1
         return enemies
 
-    def create_zigzag_formation(self):
+    def create_zigzag_formation(self, num_enemies):
         enemies = []
-        num_rows = 3
-        enemies_per_row = 8
+        num_rows = min(3, (num_enemies + 4) // 5)
+        enemies_per_row = (num_enemies + num_rows - 1) // num_rows
         spacing_x = 80
         spacing_y = 60
         
+        count = 0
         for row in range(num_rows):
             offset = spacing_x // 2 if row % 2 else 0
             for col in range(enemies_per_row):
-                x = col * spacing_x + offset + 50
+                if count >= num_enemies:
+                    break
+                x = col * spacing_x + offset + (self.screen_width - (enemies_per_row-1) * spacing_x) // 2
                 y = row * spacing_y + 50
                 enemies.append(self.create_enemy(x, y, 'zigzag'))
+                count += 1
         return enemies
 
     def move_linear(self, enemy):
@@ -201,7 +234,10 @@ class SpaceShooter:
     def spawn_wave(self):
         self.enemies.clear()
         
-        # Choose a random formation based on wave number
+        # Calculate number of enemies for this wave
+        num_enemies = self.get_enemy_count_for_wave()
+        
+        # Choose formation pattern
         if self.wave <= len(self.wave_patterns):
             # Use sequential patterns for first few waves
             pattern_func = self.wave_patterns[self.wave - 1]
@@ -210,7 +246,13 @@ class SpaceShooter:
             pattern_func = random.choice(self.wave_patterns)
         
         # Create enemies using the selected pattern
-        self.enemies = pattern_func()
+        self.enemies = pattern_func(num_enemies)
+        
+        # Assign shooting ability to random enemies
+        num_shooters = min(self.shooters_per_wave.get(self.wave, 6), len(self.enemies))
+        shooting_enemies = random.sample(self.enemies, num_shooters)
+        for enemy in shooting_enemies:
+            enemy['can_shoot'] = True
         
         # Increase difficulty with each wave
         speed_multiplier = 1 + (self.wave - 1) * 0.1
@@ -220,20 +262,16 @@ class SpaceShooter:
     def handle_input(self):
         keys = pygame.key.get_pressed()
         
-        # Horizontal movement with acceleration
         if keys[pygame.K_LEFT]:
             self.player_velocity[0] -= self.player_acceleration
         if keys[pygame.K_RIGHT]:
             self.player_velocity[0] += self.player_acceleration
             
-        # Apply friction and velocity
         self.player_velocity[0] *= self.player_friction
         self.player_pos[0] += self.player_velocity[0]
         
-        # Keep player in bounds
         self.player_pos[0] = max(0, min(self.player_pos[0], self.screen_width - 40))
         
-        # Shooting
         current_time = pygame.time.get_ticks()
         if keys[pygame.K_SPACE] and current_time - self.last_shot_time > self.shot_delay:
             self.shoot()
@@ -243,11 +281,18 @@ class SpaceShooter:
         bullet_pos = [self.player_pos[0] + 18, self.player_pos[1] - 10]
         self.bullets.append(bullet_pos)
 
+    def enemy_shoot(self, enemy):
+        current_time = pygame.time.get_ticks()
+        if enemy['can_shoot'] and current_time - enemy['last_shot_time'] > self.enemy_shot_delay:
+            bullet_pos = [enemy['pos'][0] + 15, enemy['pos'][1] + 30]  # Shoot from bottom of enemy
+            self.enemy_bullets.append(bullet_pos)
+            enemy['last_shot_time'] = current_time
+
     def update_enemies(self):
         for enemy in self.enemies:
             enemy['pattern_func'](enemy)
+            self.enemy_shoot(enemy)  # Try to shoot for each enemy (will only work for those that can_shoot)
             
-            # Check if enemies reached player
             if enemy['pos'][1] + 30 >= self.player_pos[1]:
                 self.game_over = True
 
@@ -256,6 +301,12 @@ class SpaceShooter:
             bullet[1] -= self.bullet_speed
             if bullet[1] < -10:
                 self.bullets.remove(bullet)
+        
+        # Update enemy bullets
+        for bullet in self.enemy_bullets[:]:
+            bullet[1] += self.enemy_bullet_speed
+            if bullet[1] > self.screen_height:
+                self.enemy_bullets.remove(bullet)
 
     def check_collisions(self):
         for bullet in self.bullets[:]:
@@ -270,11 +321,22 @@ class SpaceShooter:
                     self.enemies.remove(enemy)
                     self.score += 100
                     
-                    # Check for wave completion
                     if not self.enemies:
                         self.wave += 1
                         self.spawn_wave()
                     break
+
+        # Check enemy bullets hitting player
+        for bullet in self.enemy_bullets[:]:
+            if (bullet[0] > self.player_pos[0] and 
+                bullet[0] < self.player_pos[0] + 40 and
+                bullet[1] > self.player_pos[1] and 
+                bullet[1] < self.player_pos[1] + 40):
+                
+                self.enemy_bullets.remove(bullet)
+                self.lives -= 1
+                if self.lives <= 0:
+                    self.game_over = True
 
     def draw(self):
         self.screen.fill(self.BLACK)
@@ -290,14 +352,20 @@ class SpaceShooter:
         for bullet in self.bullets:
             self.screen.blit(self.bullet, bullet)
         
+        # Draw enemy bullets
+        for bullet in self.enemy_bullets:
+            self.screen.blit(self.enemy_bullet, bullet)
+        
         # Draw HUD
         score_text = self.font.render(f'Score: {self.score}', True, self.WHITE)
         wave_text = self.font.render(f'Wave: {self.wave}', True, self.WHITE)
         lives_text = self.font.render(f'Lives: {self.lives}', True, self.WHITE)
+        enemies_text = self.font.render(f'Enemies: {len(self.enemies)}', True, self.WHITE)
         
         self.screen.blit(score_text, (10, 10))
         self.screen.blit(wave_text, (10, 40))
         self.screen.blit(lives_text, (10, 70))
+        self.screen.blit(enemies_text, (10, 100))
         
         if self.game_over:
             game_over_text = self.font.render('GAME OVER - Press R to Restart', True, self.RED)
