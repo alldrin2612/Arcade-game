@@ -2,6 +2,7 @@ import pygame
 import random
 import math
 import os
+import sqlite3  # Import SQLite library
 
 class SpaceShooter:
     def __init__(self):
@@ -54,6 +55,33 @@ class SpaceShooter:
         
         # Initialize game objects
         self.init_game_objects()
+
+        # Initialize database
+        self.init_database()
+
+    def init_database(self):
+        # Create a new SQLite database or connect to an existing one
+        self.conn = sqlite3.connect('highscores.db')
+        self.cursor = self.conn.cursor()
+        
+        # Create a table for high scores if it doesn't exist
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS highscores (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                score INTEGER NOT NULL
+            )
+        ''')
+        self.conn.commit()
+
+    def save_high_score(self, score):
+        # Save a new high score to the database
+        self.cursor.execute('INSERT INTO highscores (score) VALUES (?)', (score,))
+        self.conn.commit()
+
+    def get_high_scores(self):
+        # Retrieve the top 5 high scores from the database
+        self.cursor.execute('SELECT score FROM highscores ORDER BY score DESC LIMIT 5')
+        return self.cursor.fetchall()
 
     def load_assets(self):
         # Create simple shapes for entities if no images available
@@ -259,6 +287,10 @@ class SpaceShooter:
         for enemy in self.enemies:
             enemy['velocity'][0] *= speed_multiplier
 
+        # Increase fire rate every 5 waves
+        if self.wave % 5 == 0:
+            self.enemy_shot_delay = max(100, self.enemy_shot_delay - 250)  # Decrease delay, ensuring it doesn't go below 100ms
+
     def handle_input(self):
         keys = pygame.key.get_pressed()
         
@@ -336,6 +368,7 @@ class SpaceShooter:
                 self.enemy_bullets.remove(bullet)
                 self.lives -= 1
                 if self.lives <= 0:
+                    self.save_high_score(self.score)  # Save high score when game over
                     self.game_over = True
 
     def draw(self):
@@ -368,9 +401,29 @@ class SpaceShooter:
         self.screen.blit(enemies_text, (10, 100))
         
         if self.game_over:
-            game_over_text = self.font.render('GAME OVER - Press R to Restart', True, self.RED)
-            text_rect = game_over_text.get_rect(center=(self.screen_width/2, self.screen_height/2))
+            game_over_text = self.font.render('GAME OVER', True, self.RED)
+            text_rect = game_over_text.get_rect(center=(self.screen_width/2, self.screen_height/2 - 30))
             self.screen.blit(game_over_text, text_rect)
+
+            restart_text = self.font.render('Press R to Restart', True, self.WHITE)
+            restart_rect = restart_text.get_rect(center=(self.screen_width/2, self.screen_height/2 + 10))
+            self.screen.blit(restart_text, restart_rect)
+
+            highscore_text = self.font.render('Press H to Check High Scores', True, self.WHITE)
+            highscore_rect = highscore_text.get_rect(center=(self.screen_width/2, self.screen_height/2 + 40))
+            self.screen.blit(highscore_text, highscore_rect)
+
+            exit_text = self.font.render('Press Q to Quit', True, self.WHITE)
+            exit_rect = exit_text.get_rect(center=(self.screen_width/2, self.screen_height/2 + 70))
+            self.screen.blit(exit_text, exit_rect)
+
+            # Display high scores
+            high_scores = self.get_high_scores()
+            high_score_text = self.font.render('High Scores:', True, self.WHITE)
+            self.screen.blit(high_score_text, (self.screen_width / 2 - 50, self.screen_height / 2 + 100))
+            for i, (score,) in enumerate(high_scores):
+                score_text = self.font.render(f'{i + 1}. {score}', True, self.WHITE)
+                self.screen.blit(score_text, (self.screen_width / 2 - 50, self.screen_height / 2 + 130 + i * 30))
         
         pygame.display.flip()
 
@@ -388,6 +441,10 @@ class SpaceShooter:
                         self.wave = 1
                         self.lives = 3
                         self.init_game_objects()
+                    if event.key == pygame.K_h and self.game_over:
+                        self.show_high_scores()
+                    if event.key == pygame.K_q and self.game_over:
+                        self.running = False
             
             if not self.game_over:
                 self.handle_input()
@@ -397,7 +454,30 @@ class SpaceShooter:
             
             self.draw()
         
+        self.conn.close()  # Close the database connection
         pygame.quit()
+
+    def show_high_scores(self):
+        # Display high scores in a separate screen
+        high_scores = self.get_high_scores()
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:  # Press ESC to return to the game
+                        return
+            
+            self.screen.fill(self.BLACK)
+            high_score_text = self.font.render('High Scores:', True, self.WHITE)
+            self.screen.blit(high_score_text, (self.screen_width / 2 - 50, 50))
+            for i, (score,) in enumerate(high_scores):
+                score_text = self.font.render(f'{i + 1}. {score}', True, self.WHITE)
+                self.screen.blit(score_text, (self.screen_width / 2 - 50, 100 + i * 30))
+            
+            back_text = self.font.render('Press ESC to go back', True, self.WHITE)
+            self.screen.blit(back_text, (self.screen_width / 2 - 50, 100 + len(high_scores) * 30 + 20))
+            pygame.display.flip()
 
 if __name__ == "__main__":
     game = SpaceShooter()
