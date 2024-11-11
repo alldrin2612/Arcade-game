@@ -88,6 +88,9 @@ class SpaceShooter:
         return self.cursor.fetchall()
 
     def load_assets(self):
+        # Load background image
+        self.background_image = pygame.image.load("BG/space.png").convert()  # Load and convert the image for better performance
+
         # Create simple shapes for entities if no images available
         self.player_ship = pygame.Surface((40, 40), pygame.SRCALPHA)
         pygame.draw.polygon(self.player_ship, self.WHITE, [(20, 0), (0, 40), (40, 40)])
@@ -386,7 +389,8 @@ class SpaceShooter:
             self.player_damage_particles.append({'pos': [x, y], 'velocity': particle_velocity, 'lifetime': 30, 'color': color})
 
     def draw(self):
-        self.screen.fill(self.BLACK)
+        # Draw the background image
+        self.screen.blit(self.background_image, (0, 0))  # Draw the background at the top-left corner
         
         # Apply shake effect to player position
         shake_x = random.uniform(-self.shake_intensity, self.shake_intensity)
