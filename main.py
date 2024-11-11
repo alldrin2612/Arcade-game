@@ -54,7 +54,7 @@ class SpaceShooter:
         ]
         
         # Load assets
-        self.load_assets(self.selected_ship)
+        self.load_assets()
         
         # Initialize game objects
         self.init_game_objects()
@@ -117,7 +117,7 @@ class SpaceShooter:
         self.cursor.execute('SELECT score FROM highscores ORDER BY score DESC LIMIT 5')
         return self.cursor.fetchall()
 
-    def load_assets(self, selected_ship):
+    def load_assets(self,selected_ship):
         # Load spaceship images
         ship_files = ["ship 1.png", "ship 2.png", "spaceship 1.png", "spaceship 2.png"]
         ship_path = os.path.join("BG", ship_files[selected_ship])
