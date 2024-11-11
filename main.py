@@ -11,9 +11,9 @@ class SpaceShooter:
         pygame.mixer.init()
 
         # Display settings
-        self.screen_width = 800
-        self.screen_height = 600
-        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+        self.screen_width = 800  # Keep native resolution
+        self.screen_height = 600  # Keep native resolution
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))  # Initial windowed mode
         pygame.display.set_caption("Space Shooter")
         
         # Colors
@@ -67,6 +67,24 @@ class SpaceShooter:
         # Initialize video
         self.video_capture = cv2.VideoCapture("BG/Background.mp4")
         self.frame = None
+
+        # Adjust player attributes for new resolution
+        self.player_pos = [self.screen_width // 2, self.screen_height - 60]  # Center player in new resolution
+        self.player_speed = 12  # Adjust speed for new resolution
+        self.player_friction = 0.92  # Keep friction the same
+
+        # Adjust bullet attributes for new resolution
+        self.bullet_speed = 20  # Adjust bullet speed for new resolution
+
+        # Adjust enemy attributes for new resolution
+        self.enemy_bullet_speed = 10  # Adjust enemy bullet speed for new resolution
+
+        # Adjust HUD positions
+        self.hud_offset_x = 10  # Keep HUD offset for new resolution
+        self.hud_offset_y = 10  # Keep HUD offset for new resolution
+
+        # Adjust shake effect
+        self.shake_intensity = 10  # Increase shake intensity for new resolution
 
     def init_database(self):
         # Create a new SQLite database or connect to an existing one
@@ -449,16 +467,16 @@ class SpaceShooter:
             else:
                 pygame.draw.circle(self.screen, particle['color'], (int(particle['pos'][0]), int(particle['pos'][1])), 3)
 
-        # Draw HUD
+        # Draw HUD with adjusted positions
         score_text = self.font.render(f'Score: {self.score}', True, self.WHITE)
         wave_text = self.font.render(f'Wave: {self.wave}', True, self.WHITE)
         lives_text = self.font.render(f'Lives: {self.lives}', True, self.WHITE)
         enemies_text = self.font.render(f'Enemies: {len(self.enemies)}', True, self.WHITE)
         
-        self.screen.blit(score_text, (10, 10))
-        self.screen.blit(wave_text, (10, 40))
-        self.screen.blit(lives_text, (10, 70))
-        self.screen.blit(enemies_text, (10, 100))
+        self.screen.blit(score_text, (self.hud_offset_x, self.hud_offset_y))
+        self.screen.blit(wave_text, (self.hud_offset_x, self.hud_offset_y + 30))
+        self.screen.blit(lives_text, (self.hud_offset_x, self.hud_offset_y + 60))
+        self.screen.blit(enemies_text, (self.hud_offset_x, self.hud_offset_y + 90))
         
         if self.game_over:
             game_over_text = self.font.render('GAME OVER', True, self.RED)
@@ -505,7 +523,23 @@ class SpaceShooter:
                         self.show_high_scores()
                     if event.key == pygame.K_q and self.game_over:
                         self.running = False
-            
+                    if event.key == pygame.K_f:  # Toggle fullscreen
+                        if self.screen.get_flags() & pygame.FULLSCREEN:
+                            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))  # Windowed mode
+                        else:
+                            # Get the maximum resolution of the user's device
+                            info = pygame.display.Info()
+                            max_width = info.current_w
+                            max_height = info.current_h
+                            self.screen = pygame.display.set_mode((max_width, max_height), pygame.FULLSCREEN)  # Fullscreen mode
+                            # Adjust player attributes for new resolution
+                            self.player_pos = [max_width // 2, max_height - 60]  # Center player in new resolution
+                            self.player_speed = 12  # Adjust speed for new resolution
+                            self.bullet_speed = 20  # Adjust bullet speed for new resolution
+                            self.enemy_bullet_speed = 10  # Adjust enemy bullet speed for new resolution
+                            self.hud_offset_x = 10  # Keep HUD offset for new resolution
+                            self.hud_offset_y = 10  # Keep HUD offset for new resolution
+
             if not self.game_over:
                 self.handle_input()
                 self.update_enemies()
