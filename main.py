@@ -6,9 +6,11 @@ import sqlite3  # Import SQLite library
 import cv2  # Import OpenCV for video playback
 
 class SpaceShooter:
-    def __init__(self):
+    def __init__(self, selected_ship):
         pygame.init()
         pygame.mixer.init()
+
+        self.selected_ship = selected_ship  # Store selected_ship as instance variable
 
         # Display settings
         self.screen_width = 800  # Keep native resolution
@@ -52,7 +54,7 @@ class SpaceShooter:
         ]
         
         # Load assets
-        self.load_assets()
+        self.load_assets(self.selected_ship)
         
         # Initialize game objects
         self.init_game_objects()
@@ -115,13 +117,15 @@ class SpaceShooter:
         self.cursor.execute('SELECT score FROM highscores ORDER BY score DESC LIMIT 5')
         return self.cursor.fetchall()
 
-    def load_assets(self):
+    def load_assets(self, selected_ship):
         # Load spaceship images
-        self.player_ship_image = pygame.image.load("BG/spaceship 1.png").convert_alpha()  # Load player ship image
+        ship_files = ["ship 1.png", "ship 2.png", "spaceship 1.png", "spaceship 2.png"]
+        ship_path = os.path.join("BG", ship_files[selected_ship])
+        self.player_ship = pygame.image.load(ship_path)
         self.enemy_ship_image = pygame.image.load("BG/enemyship.png").convert_alpha()  # Load enemy ship image
         
         # Resize images to fit the screen
-        self.player_ship = pygame.transform.scale(self.player_ship_image, (50, 50))  # Resize player ship
+        self.player_ship = pygame.transform.scale(self.player_ship, (50, 50))  # Resize player ship
         self.enemy_ship = pygame.transform.scale(self.enemy_ship_image, (40, 40))  # Resize enemy ship
         
         # Rotate the enemy ship 180 degrees
