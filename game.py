@@ -619,6 +619,7 @@ class Exostrike:
                         self.score = 0
                         self.wave = 1
                         self.lives = 3
+                        self.powerups.clear()  # Clear all powerups when restarting
                         self.init_game_objects()
                     if event.key == pygame.K_h and self.game_over:
                         self.show_high_scores()
