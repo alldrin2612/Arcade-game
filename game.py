@@ -6,16 +6,22 @@ import sqlite3  # Import SQLite library
 import cv2  # Import OpenCV for video playback
 
 class SpaceShooter:
-    def __init__(self, selected_ship):
+    def __init__(self, selected_ship, is_fullscreen=False, screen_width=800, screen_height=600):
         pygame.init()
         pygame.mixer.init()
 
-        self.selected_ship = selected_ship  # Store selected_ship as instance variable
-
+        self.selected_ship = selected_ship
+        
         # Display settings
-        self.screen_width = 800  # Keep native resolution
-        self.screen_height = 600  # Keep native resolution
-        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))  # Initial windowed mode
+        self.screen_width = screen_width
+        self.screen_height = screen_height
+        
+        # Set initial display mode based on fullscreen state
+        if is_fullscreen:
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.FULLSCREEN)
+        else:
+            self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+            
         pygame.display.set_caption("Space Shooter")
         
         # Colors
@@ -54,7 +60,7 @@ class SpaceShooter:
         ]
         
         # Load assets
-        self.load_assets()
+        self.load_assets(selected_ship)
         
         # Initialize game objects
         self.init_game_objects()
@@ -610,5 +616,5 @@ class SpaceShooter:
             pygame.display.flip()
 
 if __name__ == "__main__":
-    game = SpaceShooter()
+    game = SpaceShooter(selected_ship=0)  # Default to first ship when running directly
     game.run()
