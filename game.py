@@ -99,6 +99,21 @@ class Exostrike:
         self.max_tilt = 20  # Maximum rotation angle in degrees
         self.tilt_speed = 2  # How quickly the ship tilts
 
+        # Power-up attributes
+        self.powerups = []  # List to store active powerups
+        self.POWERUP_SIZE = 20  # Size of the powerup circle
+        self.POWERUP_SPEED = 2  # Slower fall speed for better visibility
+        self.POWERUP_SPAWN_CHANCE = 10  # Changed from 6 to 10 (now 1 in 10 chance, or 10%)
+        self.double_shot_active = False
+        self.rapid_fire_active = False
+        self.powerup_end_time = 0
+        
+        # Colors for powerups with higher visibility
+        self.POWERUP_COLORS = {
+            'double_shot': (0, 255, 255),  # Bright cyan
+            'rapid_fire': (255, 165, 0)    # Bright orange
+        }
+
     def init_database(self):
         # Create a new SQLite database or connect to an existing one
         self.conn = sqlite3.connect('highscores.db')
@@ -369,15 +384,20 @@ class Exostrike:
 
     def shoot(self):
         # Calculate bullet starting position from center of ship's tip
-        ship_width = 50  # Width of the player ship
-        ship_height = 50  # Height of the player ship
+        ship_width = 50
+        ship_height = 50
         
-        # Center the bullet horizontally relative to ship width
-        bullet_x = self.player_pos[0] + (ship_width / 2) - 2  # -2 to center the 4px wide bullet
-        # Position at the tip of the ship
+        # Center bullet position
+        bullet_x = self.player_pos[0] + (ship_width / 2) - 2
         bullet_y = self.player_pos[1] - 10
         
-        self.bullets.append([bullet_x, bullet_y])
+        if self.double_shot_active:
+            # Spawn two bullets side by side
+            self.bullets.append([bullet_x - 8, bullet_y])
+            self.bullets.append([bullet_x + 8, bullet_y])
+        else:
+            # Normal single bullet
+            self.bullets.append([bullet_x, bullet_y])
 
     def enemy_shoot(self, enemy):
         current_time = pygame.time.get_ticks()
@@ -418,6 +438,9 @@ class Exostrike:
                         self.bullets.remove(bullet)
                     self.enemies.remove(enemy)
                     self.score += 100
+                    
+                    # Spawn powerup at enemy's position (with reduced chance)
+                    self.spawn_powerup(enemy['pos'][0], enemy['pos'][1])
                     
                     # Create enemy damage particles
                     self.create_damage_particles(enemy['pos'][0] + 15, enemy['pos'][1] + 15, self.RED)
@@ -540,6 +563,25 @@ class Exostrike:
                 score_text = self.font.render(f'{i + 1}. {score}', True, self.WHITE)
                 self.screen.blit(score_text, (self.screen_width / 2 - 50, self.screen_height / 2 + 130 + i * 30))
         
+        # Draw powerups as circles with icons
+        for powerup in self.powerups:
+            # Draw the outer circle
+            pygame.draw.circle(self.screen, powerup['color'], 
+                             (int(powerup['pos'][0]), int(powerup['pos'][1])), 
+                             self.POWERUP_SIZE)
+            
+            # Draw inner circle for better visibility
+            pygame.draw.circle(self.screen, self.WHITE,
+                             (int(powerup['pos'][0]), int(powerup['pos'][1])), 
+                             self.POWERUP_SIZE - 4)
+            
+            # Draw icon or text based on powerup type
+            font = pygame.font.Font(None, 20)
+            icon = "2X" if powerup['type'] == 'double_shot' else "RF"
+            text = font.render(icon, True, powerup['color'])
+            text_rect = text.get_rect(center=(powerup['pos'][0], powerup['pos'][1]))
+            self.screen.blit(text, text_rect)
+        
         pygame.display.flip()
 
     def run(self):
@@ -581,6 +623,7 @@ class Exostrike:
                 self.handle_input()
                 self.update_enemies()
                 self.update_bullets()
+                self.update_powerups()
                 self.check_collisions()
             
             # Reset shake intensity after applying it
@@ -614,6 +657,51 @@ class Exostrike:
             back_text = self.font.render('Press ESC to go back', True, self.WHITE)
             self.screen.blit(back_text, (self.screen_width / 2 - 50, 100 + len(high_scores) * 30 + 20))
             pygame.display.flip()
+
+    def spawn_powerup(self, x, y):
+        if random.randint(1, self.POWERUP_SPAWN_CHANCE) == 1:
+            powerup_type = random.choice(['double_shot', 'rapid_fire'])
+            self.powerups.append({
+                'type': powerup_type,
+                'pos': [x + 15, y + 15],  # Center on the enemy's position
+                'color': self.POWERUP_COLORS[powerup_type]
+            })
+
+    def update_powerups(self):
+        # Update powerup positions and check collection
+        for powerup in self.powerups[:]:
+            powerup['pos'][1] += self.POWERUP_SPEED
+            
+            # Check if player collected the powerup (using circle collision)
+            player_center = (self.player_pos[0] + 25, self.player_pos[1] + 25)
+            powerup_center = (powerup['pos'][0], powerup['pos'][1])
+            distance = math.sqrt((player_center[0] - powerup_center[0])**2 + 
+                               (player_center[1] - powerup_center[1])**2)
+            
+            if distance < self.POWERUP_SIZE + 25:  # 25 is roughly half the player ship size
+                self.activate_powerup(powerup['type'])
+                self.powerups.remove(powerup)
+            
+            # Remove if off screen
+            elif powerup['pos'][1] > self.screen_height:
+                self.powerups.remove(powerup)
+        
+        # Check if powerups have expired
+        current_time = pygame.time.get_ticks()
+        if current_time > self.powerup_end_time:
+            self.double_shot_active = False
+            self.rapid_fire_active = False
+            self.shot_delay = 250  # Reset to normal fire rate
+
+    def activate_powerup(self, powerup_type):
+        current_time = pygame.time.get_ticks()
+        self.powerup_end_time = current_time + 5000  # 5 seconds duration
+        
+        if powerup_type == 'double_shot':
+            self.double_shot_active = True
+        elif powerup_type == 'rapid_fire':
+            self.rapid_fire_active = True
+            self.shot_delay = 125  # Half the normal delay
 
 if __name__ == "__main__":
     game = Exostrike(selected_ship=0)  # Default to first ship when running directly
