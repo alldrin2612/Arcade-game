@@ -1,6 +1,6 @@
 import pygame
 import os
-from game import SpaceShooter
+from game import Exostrike
 
 class Menu:
     def __init__(self):
@@ -10,7 +10,7 @@ class Menu:
         self.WINDOW_WIDTH = 800
         self.WINDOW_HEIGHT = 600
         self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
-        pygame.display.set_caption("Space Invaders - Ship Selection")
+        pygame.display.set_caption("Exostrike - Ship Selection")
         
         # Colors
         self.WHITE = (255, 255, 255)
@@ -49,6 +49,10 @@ class Menu:
         
         self.fullscreen = False
         
+        # Load title image
+        self.title_image = pygame.image.load(os.path.join("BG", "Exostrike.png"))
+        self.title_image = pygame.transform.scale(self.title_image, (600, 200))  # Increased height from 150 to 200, kept width at 600
+    
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -89,11 +93,9 @@ class Menu:
         # Clear screen
         self.screen.fill(self.BLACK)
         
-        # Draw game title
-        title_font = pygame.font.Font(None, 72)  # Bigger font for game title
-        game_title = title_font.render("Space Shooter", True, self.WHITE)
-        game_title_rect = game_title.get_rect(center=(self.WINDOW_WIDTH // 2, 50))
-        self.screen.blit(game_title, game_title_rect)
+        # Draw game title image
+        title_rect = self.title_image.get_rect(center=(self.WINDOW_WIDTH // 2, 50))
+        self.screen.blit(self.title_image, title_rect)
         
         # Draw ship selection text (moved down)
         selection_font = pygame.font.Font(None, 48)
@@ -131,7 +133,7 @@ class Menu:
     
     def start_game(self):
         # Initialize and run the game with the selected ship and screen properties
-        game = SpaceShooter(
+        game = Exostrike(
             selected_ship=self.selected_ship,
             is_fullscreen=self.fullscreen,
             screen_width=self.WINDOW_WIDTH,

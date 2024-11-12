@@ -5,7 +5,7 @@ import os
 import sqlite3  # Import SQLite library
 import cv2  # Import OpenCV for video playback
 
-class SpaceShooter:
+class Exostrike:
     def __init__(self, selected_ship, is_fullscreen=False, screen_width=800, screen_height=600):
         pygame.init()
         pygame.mixer.init()
@@ -22,7 +22,7 @@ class SpaceShooter:
         else:
             self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
             
-        pygame.display.set_caption("Space Shooter")
+        pygame.display.set_caption("Exostrike")
         
         # Colors
         self.BLACK = (0, 0, 0)
@@ -616,5 +616,5 @@ class SpaceShooter:
             pygame.display.flip()
 
 if __name__ == "__main__":
-    game = SpaceShooter(selected_ship=0)  # Default to first ship when running directly
+    game = Exostrike(selected_ship=0)  # Default to first ship when running directly
     game.run()
