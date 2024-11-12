@@ -5,6 +5,12 @@ from game import Exostrike
 class Menu:
     def __init__(self):
         pygame.init()
+        pygame.mixer.init()  # Initialize the mixer
+        
+        # Load and play background music
+        self.intro_music = pygame.mixer.Sound(os.path.join("BG", "intro.wav"))
+        self.intro_music.set_volume(0.5)  # Adjust volume (0.0 to 1.0)
+        self.intro_music.play(loops=-1)  # -1 means loop indefinitely
         
         # Initial window setup
         self.WINDOW_WIDTH = 800
@@ -129,9 +135,14 @@ class Menu:
             running = self.handle_events()
             self.draw()
         
+        # Stop the music before quitting
+        self.intro_music.stop()
         pygame.quit()
     
     def start_game(self):
+        # Stop the intro music before starting the game
+        self.intro_music.stop()
+        
         # Initialize and run the game with the selected ship and screen properties
         game = Exostrike(
             selected_ship=self.selected_ship,
@@ -141,11 +152,14 @@ class Menu:
         )
         game.run()
         
-        # After the game ends, reset the display mode
+        # After the game ends, reset the display mode and restart the music
         if self.fullscreen:
             self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT), pygame.FULLSCREEN)
         else:
             self.screen = pygame.display.set_mode((self.WINDOW_WIDTH, self.WINDOW_HEIGHT))
+        
+        # Restart the intro music when returning to menu
+        self.intro_music.play(loops=-1)
 
 if __name__ == "__main__":
     menu = Menu()

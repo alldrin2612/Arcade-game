@@ -162,6 +162,16 @@ class Exostrike:
         
         # Font
         self.font = pygame.font.Font(None, 36)
+        
+        # Load sound effects
+        self.shoot_sound = pygame.mixer.Sound(os.path.join("BG", "gun_1.mp3"))
+        self.damage_sound = pygame.mixer.Sound(os.path.join("BG", "damage.wav"))
+        self.gameover_sound = pygame.mixer.Sound(os.path.join("BG", "gameover.wav"))  # Add game over sound
+        
+        # Adjust sound volumes
+        self.shoot_sound.set_volume(0.3)
+        self.damage_sound.set_volume(0.4)
+        self.gameover_sound.set_volume(0.4)  # Set game over sound volume
 
     def init_game_objects(self):
         # Player attributes
@@ -383,21 +393,26 @@ class Exostrike:
             self.last_shot_time = current_time
 
     def shoot(self):
-        # Calculate bullet starting position from center of ship's tip
-        ship_width = 50
-        ship_height = 50
-        
-        # Center bullet position
-        bullet_x = self.player_pos[0] + (ship_width / 2) - 2
-        bullet_y = self.player_pos[1] - 10
-        
-        if self.double_shot_active:
-            # Spawn two bullets side by side
-            self.bullets.append([bullet_x - 8, bullet_y])
-            self.bullets.append([bullet_x + 8, bullet_y])
-        else:
-            # Normal single bullet
-            self.bullets.append([bullet_x, bullet_y])
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_shot_time > self.shot_delay:
+            # Calculate bullet starting position from center of ship's tip
+            ship_width = 50
+            ship_height = 50
+            
+            # Center bullet position
+            bullet_x = self.player_pos[0] + (ship_width / 2) - 2
+            bullet_y = self.player_pos[1] - 10
+            
+            if self.double_shot_active:
+                # Spawn two bullets side by side
+                self.bullets.append([bullet_x - 8, bullet_y])
+                self.bullets.append([bullet_x + 8, bullet_y])
+            else:
+                # Normal single bullet
+                self.bullets.append([bullet_x, bullet_y])
+            
+            self.last_shot_time = current_time
+            self.shoot_sound.play()
 
     def enemy_shoot(self, enemy):
         current_time = pygame.time.get_ticks()
@@ -438,8 +453,9 @@ class Exostrike:
                         self.bullets.remove(bullet)
                     self.enemies.remove(enemy)
                     self.score += 100
+                    self.damage_sound.play()  # Play sound when enemy is destroyed
                     
-                    # Spawn powerup at enemy's position (with reduced chance)
+                    # Spawn powerup at enemy's position
                     self.spawn_powerup(enemy['pos'][0], enemy['pos'][1])
                     
                     # Create enemy damage particles
@@ -459,11 +475,17 @@ class Exostrike:
                 
                 self.enemy_bullets.remove(bullet)
                 self.lives -= 1
-                self.shake_intensity = 5  # Set shake intensity when player is hit
-                self.create_damage_particles(self.player_pos[0] + 20, self.player_pos[1] + 20, self.WHITE)
+                
+                # Play appropriate sound based on remaining lives
                 if self.lives <= 0:
-                    self.save_high_score(self.score)  # Save high score when game over
+                    self.gameover_sound.play()  # Play game over sound for final life lost
+                    self.save_high_score(self.score)
                     self.game_over = True
+                else:
+                    self.damage_sound.play()  # Play damage sound for other hits
+                
+                self.shake_intensity = 5
+                self.create_damage_particles(self.player_pos[0] + 20, self.player_pos[1] + 20, self.WHITE)
 
     def create_damage_particles(self, x, y, color, count=10):
         for _ in range(count):
@@ -648,14 +670,23 @@ class Exostrike:
                         return
             
             self.screen.fill(self.BLACK)
+            
+            # Center the "High Scores:" title
             high_score_text = self.font.render('High Scores:', True, self.WHITE)
-            self.screen.blit(high_score_text, (self.screen_width / 2 - 50, 50))
+            title_rect = high_score_text.get_rect(center=(self.screen_width / 2, 50))
+            self.screen.blit(high_score_text, title_rect)
+            
+            # Center each score entry
             for i, (score,) in enumerate(high_scores):
                 score_text = self.font.render(f'{i + 1}. {score}', True, self.WHITE)
-                self.screen.blit(score_text, (self.screen_width / 2 - 50, 100 + i * 30))
+                score_rect = score_text.get_rect(center=(self.screen_width / 2, 100 + i * 30))
+                self.screen.blit(score_text, score_rect)
             
+            # Center the "Press ESC" text
             back_text = self.font.render('Press ESC to go back', True, self.WHITE)
-            self.screen.blit(back_text, (self.screen_width / 2 - 50, 100 + len(high_scores) * 30 + 20))
+            back_rect = back_text.get_rect(center=(self.screen_width / 2, 100 + len(high_scores) * 30 + 20))
+            self.screen.blit(back_text, back_rect)
+            
             pygame.display.flip()
 
     def spawn_powerup(self, x, y):
